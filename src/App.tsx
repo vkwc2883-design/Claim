@@ -13,7 +13,9 @@ import {
   Shield,
   BookOpen,
   ArrowRight,
-  ExternalLink
+  ExternalLink,
+  UserCheck,
+  LogOut
 } from 'lucide-react';
 import { StaffClaimFormState, ReceiptItem, OFFICIAL_CLAIM_CODES } from './types';
 import { exportToExcel, exportToPDF } from './utils/exportUtils';
@@ -23,6 +25,8 @@ import { ClaimFormPreview } from './components/ClaimFormPreview';
 import { ReceiptLedger } from './components/ReceiptLedger';
 import { CloudStorageModal } from './components/CloudStorageModal';
 import { OriginalFormModal } from './components/OriginalFormModal';
+import { UserManagementModal } from './components/UserManagementModal';
+import { UserAccount, getCurrentUser, setCurrentUser } from './services/authService';
 
 // Initial preloaded claim with realistic Malaysian expenses
 const INITIAL_CLAIM_STATE: StaffClaimFormState = {
@@ -118,14 +122,30 @@ const INITIAL_CLAIM_STATE: StaffClaimFormState = {
 };
 
 export default function App() {
+  const [currentUser, setCurrentUserSession] = useState<UserAccount | null>(() => getCurrentUser());
   const [claim, setClaim] = useState<StaffClaimFormState>(() => {
     const saved = localStorage.getItem('emo_staff_claim_state');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        // If current user is logged in, ensure claim form matches current user name & IC
+        const activeUser = getCurrentUser();
+        if (activeUser) {
+          parsed.staffName = activeUser.name;
+          parsed.icNo = activeUser.icNo;
+        }
+        return parsed;
       } catch (e) {
         return INITIAL_CLAIM_STATE;
       }
+    }
+    const activeUser = getCurrentUser();
+    if (activeUser) {
+      return {
+        ...INITIAL_CLAIM_STATE,
+        staffName: activeUser.name,
+        icNo: activeUser.icNo,
+      };
     }
     return INITIAL_CLAIM_STATE;
   });
@@ -134,6 +154,7 @@ export default function App() {
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isCloudStorageOpen, setIsCloudStorageOpen] = useState(false);
   const [isOriginalFormOpen, setIsOriginalFormOpen] = useState(false);
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
 
   // Persist locally
@@ -144,6 +165,18 @@ export default function App() {
   const showNotice = (msg: string) => {
     setNotification(msg);
     setTimeout(() => setNotification(null), 3500);
+  };
+
+  const handleLoginUser = (user: UserAccount) => {
+    setCurrentUserSession(user);
+    setCurrentUser(user);
+    // Prefill staff name and IC number corresponding to user details
+    setClaim(prev => ({
+      ...prev,
+      staffName: user.name,
+      icNo: user.icNo,
+    }));
+    showNotice(`Logged in as ${user.name}. Claim Form prefilled with name & IC.`);
   };
 
   const handleAddReceipt = (item: ReceiptItem) => {
@@ -234,6 +267,19 @@ export default function App() {
                   RM {totalAmount.toFixed(2)}
                 </span>
               </div>
+
+              {/* User Profile / Login Button */}
+              <button
+                onClick={() => setIsUserModalOpen(true)}
+                className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 hover:bg-slate-100 rounded-xl flex items-center gap-2 transition-colors"
+              >
+                <div className="w-5 h-5 rounded-full bg-orange-600 text-white font-bold flex items-center justify-center text-[10px]">
+                  {currentUser ? currentUser.name.charAt(0) : 'U'}
+                </div>
+                <span className="hidden sm:inline font-bold text-slate-800">
+                  {currentUser ? currentUser.username : 'Sign In'}
+                </span>
+              </button>
 
               {/* View Original Form PDF Reference */}
               <button
@@ -333,7 +379,7 @@ export default function App() {
             {/* Quick Helper Badge */}
             <div className="hidden lg:flex items-center space-x-2 text-[11px] text-slate-500">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>AI OCR Auto-Categorization: Active</span>
+              <span>User: {currentUser ? currentUser.name : 'Not Logged In'} (Auto-Prefilled)</span>
             </div>
           </div>
         </div>
@@ -416,7 +462,7 @@ export default function App() {
           EMO BOOK SERVICES SDN BHD (679385-W) • 7 & 9, Jalan PJS 7/17, Bandar Sunway, 46150 Petaling Jaya, Selangor.
         </p>
         <p className="text-[11px] text-slate-400 mt-0.5">
-          Equipped with Gemini 3.8 Flash OCR Engine • Auto-categorized according to official 'CODE' column • Excel & PDF Export
+          Equipped with Gemini 3.8 Flash OCR Engine • User Management Module • Firebase Firestore & Auth
         </p>
       </footer>
 
@@ -440,6 +486,13 @@ export default function App() {
       <OriginalFormModal
         isOpen={isOriginalFormOpen}
         onClose={() => setIsOriginalFormOpen(false)}
+      />
+
+      <UserManagementModal
+        isOpen={isUserModalOpen}
+        onClose={() => setIsUserModalOpen(false)}
+        currentUser={currentUser}
+        onLogin={handleLoginUser}
       />
     </div>
   );
