@@ -1,0 +1,8 @@
+{
+  "name": "EMO ClaimScan & OCR - Staff Expense Claim System",
+  "description": "Smart receipt and document scanner with AI OCR, automatic expense code categorization based on EMO Book Services Claim Form, cloud storage backup, and export to Excel and PDF.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
