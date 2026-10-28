@@ -15,12 +15,15 @@ import {
   ArrowRight,
   ExternalLink,
   UserCheck,
-  LogOut
+  LogOut,
+  PlusCircle
 } from 'lucide-react';
 import { StaffClaimFormState, ReceiptItem, OFFICIAL_CLAIM_CODES } from './types';
 import { exportToExcel, exportToPDF } from './utils/exportUtils';
 import { SAMPLE_RECEIPT_PRESETS, renderReceiptCanvas } from './utils/sampleReceipts';
 import { ScannerModal } from './components/ScannerModal';
+import { ManualTransactionModal } from './components/ManualTransactionModal';
+import { GoogleSheetsModal } from './components/GoogleSheetsModal';
 import { ClaimFormPreview } from './components/ClaimFormPreview';
 import { ReceiptLedger } from './components/ReceiptLedger';
 import { CloudStorageModal } from './components/CloudStorageModal';
@@ -128,7 +131,6 @@ export default function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        // If current user is logged in, ensure claim form matches current user name & IC
         const activeUser = getCurrentUser();
         if (activeUser) {
           parsed.staffName = activeUser.name;
@@ -152,6 +154,8 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<'form' | 'receipts' | 'codes'>('form');
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+  const [isGoogleSheetsOpen, setIsGoogleSheetsOpen] = useState(false);
   const [isCloudStorageOpen, setIsCloudStorageOpen] = useState(false);
   const [isOriginalFormOpen, setIsOriginalFormOpen] = useState(false);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
@@ -170,7 +174,6 @@ export default function App() {
   const handleLoginUser = (user: UserAccount) => {
     setCurrentUserSession(user);
     setCurrentUser(user);
-    // Prefill staff name and IC number corresponding to user details
     setClaim(prev => ({
       ...prev,
       staffName: user.name,
@@ -185,6 +188,14 @@ export default function App() {
       items: [item, ...prev.items],
     }));
     showNotice(`Added receipt: RM ${item.amount.toFixed(2)} categorized under [${item.code}]`);
+  };
+
+  const handleAddManualTransaction = (item: ReceiptItem) => {
+    setClaim(prev => ({
+      ...prev,
+      items: [item, ...prev.items],
+    }));
+    showNotice(`Added manual transaction: RM ${item.amount.toFixed(2)} under [${item.code}]`);
   };
 
   const handleUpdateItem = (updated: ReceiptItem) => {
@@ -291,6 +302,16 @@ export default function App() {
                 <span className="hidden lg:inline">Original Form</span>
               </button>
 
+              {/* Google Sheets Online Sync Button */}
+              <button
+                onClick={() => setIsGoogleSheetsOpen(true)}
+                title="Summarize and sync to online Google Sheet"
+                className="px-3 py-2 text-xs font-bold text-emerald-900 bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 rounded-xl flex items-center gap-1.5 transition-all shadow-xs"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
+                <span className="hidden md:inline">Google Sheets Sync</span>
+              </button>
+
               {/* Cloud Storage Button */}
               <button
                 onClick={() => setIsCloudStorageOpen(true)}
@@ -305,20 +326,30 @@ export default function App() {
               <button
                 onClick={handleExportExcel}
                 title="Download formatted Excel (.xlsx) matching claim form"
-                className="px-3 py-2 text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 rounded-xl flex items-center gap-1.5 transition-all shadow-xs"
+                className="px-3 py-2 text-xs font-bold text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl flex items-center gap-1.5 transition-all shadow-xs"
               >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
-                <span>Excel</span>
+                <FileSpreadsheet className="w-3.5 h-3.5 text-slate-700" />
+                <span className="hidden lg:inline">Excel</span>
               </button>
 
               {/* Export PDF */}
               <button
                 onClick={handleExportPDF}
                 title="Download official PDF Claim Form ready for signing"
-                className="px-3 py-2 text-xs font-bold text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl flex items-center gap-1.5 transition-all shadow-xs"
+                className="px-3 py-2 text-xs font-bold text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl flex items-center gap-1.5 transition-all shadow-xs"
               >
                 <FileDown className="w-3.5 h-3.5 text-slate-700" />
-                <span>PDF</span>
+                <span className="hidden lg:inline">PDF</span>
+              </button>
+
+              {/* Add Manual Transaction Button */}
+              <button
+                onClick={() => setIsManualModalOpen(true)}
+                title="Add transaction without receipt"
+                className="px-3 py-2 text-xs font-bold text-amber-900 bg-amber-50 border border-amber-200 hover:bg-amber-100 rounded-xl flex items-center gap-1.5 transition-all shadow-xs"
+              >
+                <PlusCircle className="w-4 h-4 text-amber-700" />
+                <span className="hidden md:inline">No Receipt Entry</span>
               </button>
 
               {/* Scan Receipt Button */}
@@ -360,7 +391,7 @@ export default function App() {
                 }`}
               >
                 <Receipt className="w-3.5 h-3.5" />
-                Receipts Ledger ({claim.items.length})
+                Transactions & Receipts ({claim.items.length})
               </button>
 
               <button
@@ -462,7 +493,7 @@ export default function App() {
           EMO BOOK SERVICES SDN BHD (679385-W) • 7 & 9, Jalan PJS 7/17, Bandar Sunway, 46150 Petaling Jaya, Selangor.
         </p>
         <p className="text-[11px] text-slate-400 mt-0.5">
-          Equipped with Gemini 3.8 Flash OCR Engine • User Management Module • Firebase Firestore & Auth
+          Equipped with Gemini 3.8 Flash OCR • Google Sheets Online Sync • Firebase Firestore & Auth
         </p>
       </footer>
 
@@ -471,6 +502,18 @@ export default function App() {
         isOpen={isScannerOpen}
         onClose={() => setIsScannerOpen(false)}
         onAddReceipt={handleAddReceipt}
+      />
+
+      <ManualTransactionModal
+        isOpen={isManualModalOpen}
+        onClose={() => setIsManualModalOpen(false)}
+        onAddTransaction={handleAddManualTransaction}
+      />
+
+      <GoogleSheetsModal
+        isOpen={isGoogleSheetsOpen}
+        onClose={() => setIsGoogleSheetsOpen(false)}
+        claim={claim}
       />
 
       <CloudStorageModal

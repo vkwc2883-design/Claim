@@ -1,0 +1,45 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Staff user profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "username": { "type": "string" },
+        "name": { "type": "string" },
+        "icNo": { "type": "string" },
+        "role": { "type": "string" }
+      },
+      "required": ["id", "username", "name", "icNo"]
+    },
+    "ReceiptItem": {
+      "title": "ReceiptItem",
+      "description": "Expense transaction item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "merchantName": { "type": "string" },
+        "receiptNumber": { "type": "string" },
+        "date": { "type": "string" },
+        "amount": { "type": "number" },
+        "code": { "type": "string" },
+        "details": { "type": "string" },
+        "remark": { "type": "string" },
+        "confidence": { "type": "string" },
+        "uploadedAt": { "type": "string" }
+      },
+      "required": ["id", "merchantName", "date", "amount", "code", "details"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles collection"
+    },
+    "/receipts/{receiptId}": {
+      "schema": "ReceiptItem",
+      "description": "Receipts and manual transactions collection"
+    }
+  }
+}
